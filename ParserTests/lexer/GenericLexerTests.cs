@@ -830,7 +830,7 @@ namespace ParserTests.lexer
             Assert.True(res.IsOk);
             var lexer = res.Result;
 
-            var result = lexer.Tokenize("#FFF");
+            var result = lexer.Tokenize("#2E8B57");
             Assert.True(result.IsOk);
             Assert.Equal(2, result.Tokens.Count);
             Assert.Equal(CustomId151.ID, result.Tokens.First().TokenID);
