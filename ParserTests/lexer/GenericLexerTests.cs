@@ -156,6 +156,20 @@ namespace ParserTests.lexer
         OTHER
     }
 
+    public enum CustomIdError
+    {
+        EOS = 0,
+        [Lexeme(GenericToken.Identifier, IdentifierType.Custom, "#", "-_0-9A-Za-z")]
+        ID = 1
+    }
+    
+    public enum CustomId151
+    {
+        EOS,
+        [Lexeme(GenericToken.Identifier, IdentifierType.Custom, "#-#", "0-9a-fA-F")]
+        ID
+    }
+
     [Lexer(IgnoreWS = false)]
     public enum IgnoreWS
     {
@@ -798,6 +812,29 @@ namespace ParserTests.lexer
         private static string ToTokens<T>(LexerResult<T> result) where T : struct
         {
             return result.Tokens.Aggregate(new StringBuilder(), (buf, token) => buf.Append(token.TokenID)).ToString();
+        }
+
+        [Fact]
+        public void TestIssue151Error()
+        {
+            var res = LexerBuilder.BuildLexer(new BuildResult<ILexer<CustomIdError>>());
+            Assert.True(res.IsError);
+            Assert.Single(res.Errors.Where(e => e.Level == ErrorLevel.ERROR));
+            Assert.Contains("range", res.Errors.FirstOrDefault(e => e.Level == ErrorLevel.ERROR).Message);
+        }
+        
+        [Fact]
+        public void TestIssue151()
+        {
+            var res = LexerBuilder.BuildLexer(new BuildResult<ILexer<CustomId151>>());
+            Assert.True(res.IsOk);
+            var lexer = res.Result;
+
+            var result = lexer.Tokenize("#FFF");
+            Assert.True(result.IsOk);
+            Assert.Equal(2, result.Tokens.Count);
+            Assert.Equal(CustomId151.ID, result.Tokens.First().TokenID);
+            ;
         }
     }
 }

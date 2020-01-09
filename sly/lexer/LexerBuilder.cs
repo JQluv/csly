@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using sly.buildresult;
 using sly.lexer.fsm;
 
@@ -161,6 +162,15 @@ namespace sly.lexer
                     config.IdType = lexeme.IdentifierType;
                     if (lexeme.IdentifierType == IdentifierType.Custom)
                     {
+                        Regex patternRegex = new Regex("(.\\-.)+");
+                        if (!patternRegex.Match(lexeme.IdentifierStartPattern).Success)
+                        {
+                            throw new LexerInitializationException($"identifier lexeme start pattern [{lexeme.IdentifierStartPattern}] is not a validrange ");
+                        }
+                        if (!patternRegex.Match(lexeme.IdentifierRestPattern).Success)
+                        {
+                            throw new LexerInitializationException($"identifier lexeme start pattern [{lexeme.IdentifierRestPattern}] is not a validrange ");
+                        }
                         config.IdentifierStartPattern = ParseIdentifierPattern(lexeme.IdentifierStartPattern);
                         config.IdentifierRestPattern = ParseIdentifierPattern(lexeme.IdentifierRestPattern);
                     }
@@ -198,121 +208,136 @@ namespace sly.lexer
                                                                      BuildExtension<IN> extensionBuilder, BuildResult<ILexer<IN>> result) where IN : struct
         {
             result = CheckStringAndCharTokens(attributes, result);
-            var (config, tokens) = GetConfigAndGenericTokens(attributes);
-            config.ExtensionBuilder = extensionBuilder;
-            var lexer = new GenericLexer<IN>(config, tokens);
-            var Extensions = new Dictionary<IN, LexemeAttribute>();
-            foreach (var pair in attributes)
+            (GenericLexer<IN>.Config config, GenericToken[]tokens)
+                configAndGenerics = (default(GenericLexer<IN>.Config) , default(GenericToken[]));
+            try
             {
-                var tokenID = pair.Key;
-
-                var lexemes = pair.Value;
-                foreach (var lexeme in lexemes)
-                {
-                    try
-                    {
-                        if (lexeme.IsStaticGeneric)
-                        {
-                            lexer.AddLexeme(lexeme.GenericToken, tokenID);
-                        }
-
-                        if (lexeme.IsKeyWord)
-                        {
-                            foreach (var param in lexeme.GenericTokenParameters)
-                            {
-                                lexer.AddKeyWord(tokenID, param);
-                            }
-                        }
-
-                        if (lexeme.IsSugar)
-                        {
-                            foreach (var param in lexeme.GenericTokenParameters)
-                            {
-                                lexer.AddSugarLexem(tokenID, param);
-                            }
-                        }
-
-                        if (lexeme.IsString)
-                        {
-                            var (delimiter, escape) = GetDelimiters(lexeme, "\"", "\\");
-                            lexer.AddStringLexem(tokenID, delimiter, escape);
-                        }
-
-                        if (lexeme.IsChar)
-                        {
-                            var (delimiter, escape) = GetDelimiters(lexeme, "'", "\\");
-                            lexer.AddCharLexem(tokenID, delimiter, escape);
-                        }
-
-                        if (lexeme.IsExtension)
-                        {
-                            Extensions[tokenID] = lexeme;
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        result.AddError(new InitializationError(ErrorLevel.FATAL, e.Message));
-                    }
-                }
+                configAndGenerics = GetConfigAndGenericTokens(attributes);
+            }
+            catch (Exception e)
+            {
+                result.AddError(new InitializationError(ErrorLevel.ERROR,e.Message));
             }
 
-            AddExtensions(Extensions, extensionBuilder, lexer);
-
-            var comments = GetCommentsAttribute(result);
             if (!result.IsError)
             {
-                foreach (var comment in comments)
+                configAndGenerics.config.ExtensionBuilder = extensionBuilder;
+                var lexer = new GenericLexer<IN>(configAndGenerics.config, configAndGenerics.tokens);
+                var Extensions = new Dictionary<IN, LexemeAttribute>();
+                foreach (var pair in attributes)
                 {
-                    NodeCallback<GenericToken> callbackSingle = match =>
-                    {
-                        match.Properties[GenericLexer<IN>.DerivedToken] = comment.Key;
-                        match.Result.IsComment = true;
-                        match.Result.CommentType = CommentType.Single;
-                        return match;
-                    };
+                    var tokenID = pair.Key;
 
-                    NodeCallback<GenericToken> callbackMulti = match =>
+                    var lexemes = pair.Value;
+                    foreach (var lexeme in lexemes)
                     {
-                        match.Properties[GenericLexer<IN>.DerivedToken] = comment.Key;
-                        match.Result.IsComment = true;
-                        match.Result.CommentType = CommentType.Multi;
-                        return match;
-                    };
-
-                    foreach (var commentAttr in comment.Value)
-                    {
-                        var fsmBuilder = lexer.FSMBuilder;
-
-                        var hasSingleLine = !string.IsNullOrWhiteSpace(commentAttr.SingleLineCommentStart);
-                        if (hasSingleLine)
+                        try
                         {
-                            lexer.SingleLineComment = commentAttr.SingleLineCommentStart;
+                            if (lexeme.IsStaticGeneric)
+                            {
+                                lexer.AddLexeme(lexeme.GenericToken, tokenID);
+                            }
 
-                            fsmBuilder.GoTo(GenericLexer<IN>.start);
-                            fsmBuilder.ConstantTransition(commentAttr.SingleLineCommentStart);
-                            fsmBuilder.Mark(GenericLexer<IN>.single_line_comment_start);
-                            fsmBuilder.End(GenericToken.Comment);
-                            fsmBuilder.CallBack(callbackSingle);
+                            if (lexeme.IsKeyWord)
+                            {
+                                foreach (var param in lexeme.GenericTokenParameters)
+                                {
+                                    lexer.AddKeyWord(tokenID, param);
+                                }
+                            }
+
+                            if (lexeme.IsSugar)
+                            {
+                                foreach (var param in lexeme.GenericTokenParameters)
+                                {
+                                    lexer.AddSugarLexem(tokenID, param);
+                                }
+                            }
+
+                            if (lexeme.IsString)
+                            {
+                                var (delimiter, escape) = GetDelimiters(lexeme, "\"", "\\");
+                                lexer.AddStringLexem(tokenID, delimiter, escape);
+                            }
+
+                            if (lexeme.IsChar)
+                            {
+                                var (delimiter, escape) = GetDelimiters(lexeme, "'", "\\");
+                                lexer.AddCharLexem(tokenID, delimiter, escape);
+                            }
+
+                            if (lexeme.IsExtension)
+                            {
+                                Extensions[tokenID] = lexeme;
+                            }
                         }
-
-                        var hasMultiLine = !string.IsNullOrWhiteSpace(commentAttr.MultiLineCommentStart);
-                        if (hasMultiLine)
+                        catch (Exception e)
                         {
-                            lexer.MultiLineCommentStart = commentAttr.MultiLineCommentStart;
-                            lexer.MultiLineCommentEnd = commentAttr.MultiLineCommentEnd;
-                            
-                            fsmBuilder.GoTo(GenericLexer<IN>.start);
-                            fsmBuilder.ConstantTransition(commentAttr.MultiLineCommentStart);
-                            fsmBuilder.Mark(GenericLexer<IN>.multi_line_comment_start);
-                            fsmBuilder.End(GenericToken.Comment);
-                            fsmBuilder.CallBack(callbackMulti);
+                            result.AddError(new InitializationError(ErrorLevel.FATAL, e.Message));
                         }
                     }
                 }
+
+                AddExtensions(Extensions, extensionBuilder, lexer);
+
+                var comments = GetCommentsAttribute(result);
+                if (!result.IsError)
+                {
+                    foreach (var comment in comments)
+                    {
+                        NodeCallback<GenericToken> callbackSingle = match =>
+                        {
+                            match.Properties[GenericLexer<IN>.DerivedToken] = comment.Key;
+                            match.Result.IsComment = true;
+                            match.Result.CommentType = CommentType.Single;
+                            return match;
+                        };
+
+                        NodeCallback<GenericToken> callbackMulti = match =>
+                        {
+                            match.Properties[GenericLexer<IN>.DerivedToken] = comment.Key;
+                            match.Result.IsComment = true;
+                            match.Result.CommentType = CommentType.Multi;
+                            return match;
+                        };
+
+                        foreach (var commentAttr in comment.Value)
+                        {
+                            var fsmBuilder = lexer.FSMBuilder;
+
+                            var hasSingleLine = !string.IsNullOrWhiteSpace(commentAttr.SingleLineCommentStart);
+                            if (hasSingleLine)
+                            {
+                                lexer.SingleLineComment = commentAttr.SingleLineCommentStart;
+
+                                fsmBuilder.GoTo(GenericLexer<IN>.start);
+                                fsmBuilder.ConstantTransition(commentAttr.SingleLineCommentStart);
+                                fsmBuilder.Mark(GenericLexer<IN>.single_line_comment_start);
+                                fsmBuilder.End(GenericToken.Comment);
+                                fsmBuilder.CallBack(callbackSingle);
+                            }
+
+                            var hasMultiLine = !string.IsNullOrWhiteSpace(commentAttr.MultiLineCommentStart);
+                            if (hasMultiLine)
+                            {
+                                lexer.MultiLineCommentStart = commentAttr.MultiLineCommentStart;
+                                lexer.MultiLineCommentEnd = commentAttr.MultiLineCommentEnd;
+
+                                fsmBuilder.GoTo(GenericLexer<IN>.start);
+                                fsmBuilder.ConstantTransition(commentAttr.MultiLineCommentStart);
+                                fsmBuilder.Mark(GenericLexer<IN>.multi_line_comment_start);
+                                fsmBuilder.End(GenericToken.Comment);
+                                fsmBuilder.CallBack(callbackMulti);
+                            }
+                        }
+                    }
+                }
+
+                result.Result = lexer;
             }
-            
-            result.Result = lexer;
+
             return result;
+            
         }
 
         private static (string delimiter, string escape) GetDelimiters(LexemeAttribute lexeme, string delimiter, string escape)
