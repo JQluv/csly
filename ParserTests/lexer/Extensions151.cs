@@ -29,7 +29,10 @@ namespace ParserTests.lexer
                 fsmBuilder.GoTo(GenericLexer<Extensions>.start)
                     .Transition('#')
                     .Mark("start_date")
-                    .RepetitionTransition(6, "[0-9,a-f,A-F]")
+                    .RepetitionTransition(4, "[0-9,a-f,A-F]")
+                    .End(GenericToken.Extension)
+                    .CallBack(callback)
+                    .RepetitionTransition(2,"[0-9,a-f,A-F]")
                     .End(GenericToken.Extension)
                     .CallBack(callback);
             }

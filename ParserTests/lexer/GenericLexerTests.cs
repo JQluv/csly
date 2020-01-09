@@ -850,6 +850,12 @@ namespace ParserTests.lexer
             Assert.Equal(2, result.Tokens.Count);
             Assert.Equal(RGB.RGB, result.Tokens.First().TokenID);
             Assert.Equal("#2E8B57", result.Tokens.First().Value);
+            
+            result = lexer.Tokenize("#2E8B");
+            Assert.True(result.IsOk);
+            Assert.Equal(2, result.Tokens.Count);
+            Assert.Equal(RGB.RGB, result.Tokens.First().TokenID);
+            Assert.Equal("#2E8B", result.Tokens.First().Value);
             ;
         }
     }
