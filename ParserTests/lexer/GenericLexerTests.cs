@@ -834,6 +834,22 @@ namespace ParserTests.lexer
             Assert.True(result.IsOk);
             Assert.Equal(2, result.Tokens.Count);
             Assert.Equal(CustomId151.ID, result.Tokens.First().TokenID);
+            Assert.Equal("#2E8B57", result.Tokens.First().Value);
+        }
+        
+        [Fact]
+        public void TestIssue151Extensions()
+        {
+            var lexerRes =
+                LexerBuilder.BuildLexer(new BuildResult<ILexer<RGB>>(), Extensions151.AddExtension);
+            Assert.True(lexerRes.IsOk);
+            var lexer = lexerRes.Result;
+
+            var result = lexer.Tokenize("#2E8B57");
+            Assert.True(result.IsOk);
+            Assert.Equal(2, result.Tokens.Count);
+            Assert.Equal(RGB.RGB, result.Tokens.First().TokenID);
+            Assert.Equal("#2E8B57", result.Tokens.First().Value);
             ;
         }
     }
