@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using sly.buildresult;
-using sly.lexer.fsm;
 using sly.parser.generator.visitor;
 using sly.parser.llparser;
 using sly.parser.syntax.grammar;
@@ -16,7 +15,7 @@ namespace sly.parser.generator
     internal class EBNFParserBuilder<IN, OUT> : ParserBuilder<IN, OUT> where IN : struct
     {
         public override BuildResult<Parser<IN, OUT>> BuildParser(object parserInstance, ParserType parserType,
-            string rootRule, BuildExtension<IN> extensionBuilder = null)
+            string rootRule)
         {
             var ruleparser = new RuleParser<IN>();
             var builder = new ParserBuilder<EbnfTokenGeneric, GrammarNode<IN>>();

@@ -4,7 +4,6 @@ using System.Linq;
 using System.Reflection;
 using sly.buildresult;
 using sly.lexer;
-using sly.lexer.fsm;
 using sly.parser.generator.visitor;
 using sly.parser.llparser;
 using sly.parser.syntax.grammar;
@@ -35,7 +34,7 @@ namespace sly.parser.generator
         ///     <param name="rootRule">the name of the root non terminal of the grammar</param>
         ///     <returns></returns>
         public virtual BuildResult<Parser<IN, OUT>> BuildParser(object parserInstance, ParserType parserType,
-            string rootRule, BuildExtension<IN> extensionBuilder = null)
+            string rootRule)
         {
             Parser<IN, OUT> parser = null;
             var result = new BuildResult<Parser<IN, OUT>>();
@@ -46,7 +45,7 @@ namespace sly.parser.generator
                 var syntaxParser = BuildSyntaxParser(configuration, parserType, rootRule);
                 var visitor = new SyntaxTreeVisitor<IN, OUT>(configuration, parserInstance);
                 parser = new Parser<IN, OUT>(syntaxParser, visitor);
-                var lexerResult = BuildLexer(extensionBuilder);
+                var lexerResult = BuildLexer();
                 parser.Lexer = lexerResult.Result;
                 if (lexerResult.IsError) result.AddErrors(lexerResult.Errors);
                 parser.Instance = parserInstance;
@@ -119,9 +118,9 @@ namespace sly.parser.generator
         }
 
 
-        protected virtual BuildResult<ILexer<IN>> BuildLexer(BuildExtension<IN> extensionBuilder =  null)
+        protected virtual BuildResult<ILexer<IN>> BuildLexer()
         {
-            var lexer = LexerBuilder.BuildLexer(new BuildResult<ILexer<IN>>(), extensionBuilder);
+            var lexer = LexerBuilder.BuildLexer(new BuildResult<ILexer<IN>>());
             return lexer;
         }
 
